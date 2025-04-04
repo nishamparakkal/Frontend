@@ -11,55 +11,102 @@ const Cart = () => {
 
   useEffect(() => {
     checkLogin();
-  }, [BackEndURL]); // Dependency on BackEndURL
-
-  console.log("Backend URL:", BackEndURL); // Debugging log
-
+  }, []);
+  console.log(BackEndURL)
   const checkLogin = () => {
     const token = localStorage.getItem("token");
     if (!token) {
       setTimeout(() => navigate("/login"), 100);
-    } else if (BackEndURL) {
+    } else {
       fetchCart();
     }
   };
 
   const fetchCart = async () => {
-    if (!BackEndURL) return; // Ensure BackEndURL is available
+    if (!BackEndURL) {
+      console.error("BackEndURL is undefined");
+      return;
+    }
     try {
       const response = await axios.get(`${BackEndURL}/cart`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
       });
-      console.log("Cart Data:", response.data);
+      console.log("Cart Data:", response.data); // Debugging line
       setCart(response.data || []);
     } catch (error) {
       console.error("Error fetching cart:", error);
     }
   };
 
+  const updateQuantity = async (productId, change) => {
+    try {
+      const response = await axios.put(`${BackEndURL}/cart/update`, { productId, change }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setCart(response.data || []);
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+    }
+  };
+
+  const removeFromCart = async (productId) => {
+    try {
+      const response = await axios.delete(`${BackEndURL}/cart/remove/${productId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setCart(response.data || []);
+    } catch (error) {
+      console.error("Error removing item from cart:", error);
+    }
+  };
+
+  const calculateTotal = () => {
+    return cart.reduce((total, item) => total + (item.productId?.price || 0) * item.quantity, 0);
+  };
+
+  const goToCheckout = () => {
+    window.location.href = "/checkout";
+  };
+
   return (
     <div className="container mx-auto p-4 max-w-md bg-white rounded-lg shadow-md">
-      <h2 className="text-xl font-bold text-center p-4 bg-gray-100">Your Cart</h2>
+      <div className="flex items-center justify-between p-4 bg-gray-100">
+        <button onClick={() => window.history.back()} className="text-2xl">←</button>
+        <h2 className="text-xl font-bold">Your Cart</h2>
+      </div>
 
-      {BackEndURL ? (
-        cart.length === 0 ? (
-          <p className="p-4">Your cart is empty</p>
+      <div className="p-4">
+        {cart.length === 0 ? (
+          <p>Your cart is empty</p>
         ) : (
-          cart.map((item) => (
-            item.productId && (
+          cart.map((item) =>
+            item.productId ? (
               <div key={item._id} className="flex items-center p-3 mb-2 bg-gray-50 rounded shadow">
                 <img src={item.productId.image || ""} alt={item.productId.name || "Product"} className="w-12 h-12 rounded mr-4 cartimg" />
                 <div className="flex-1">
                   <strong>{item.productId.name || "Unknown Product"}</strong>
                   <p>1KG</p>
                 </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => updateQuantity(item.productId._id, -1)} className="px-2 bg-gray-300 rounded">➖</button>
+                  <span>{item.quantity}</span>
+                  <button onClick={() => updateQuantity(item.productId._id, 1)} className="px-2 bg-gray-300 rounded">➕</button>
+                </div>
+                <p className="font-bold ml-4">₹{(item.productId.price || 0) * item.quantity}</p>
+                <button onClick={() => removeFromCart(item.productId._id)} className="ml-4 text-red-600">❌</button>
               </div>
-            )
-          ))
-        )
-      ) : (
-        <p className="text-center p-4 text-gray-500">Waiting for backend URL...</p>
-      )}
+            ) : null
+          )
+        )}
+      </div>
+
+      <div className="p-4 bg-gray-100">
+        <h3 className="text-lg font-bold">Total: ₹{calculateTotal()}</h3>
+      </div>
+
+      <button onClick={goToCheckout} className="w-full p-3 bg-yellow-500 text-lg font-bold">
+        PAY
+      </button>
     </div>
   );
 };
